@@ -1,4 +1,6 @@
 
+import { databaseService } from "./databaseService";
+
 // Types for our chatbot data
 export interface BankingCategory {
   id: string;
@@ -164,45 +166,56 @@ export const bankingQuestions: BankingQuestion[] = [
 /**
  * Find the best matching question based on user input
  */
-export function findBestMatch(userInput: string): BankingQuestion | null {
+export async function findBestMatch(userInput: string): Promise<BankingQuestion | null> {
   const input = userInput.toLowerCase();
   
-  // First, look for direct matches in question text
-  const directMatch = bankingQuestions.find(q => q.question.toLowerCase().includes(input));
-  if (directMatch) return directMatch;
-  
-  // Calculate match scores based on keywords
-  const matches = bankingQuestions.map(question => {
-    let score = 0;
+  try {
+    // Get questions from the database
+    const questions = await databaseService.getQuestions();
     
-    // Check question keywords
-    question.keywords.forEach(keyword => {
-      if (input.includes(keyword.toLowerCase())) {
-        score += 3; // Higher score for question-specific keywords
-      }
+    // First, look for direct matches in question text
+    const directMatch = questions.find(q => q.question.toLowerCase().includes(input));
+    if (directMatch) return directMatch;
+    
+    // Get categories from the database
+    const categories = await databaseService.getCategories();
+    
+    // Calculate match scores based on keywords
+    const matches = questions.map(question => {
+      let score = 0;
+      
+      // Check question keywords
+      question.keywords.forEach(keyword => {
+        if (input.includes(keyword.toLowerCase())) {
+          score += 3; // Higher score for question-specific keywords
+        }
+      });
+      
+      // Check category keywords
+      question.categoryIds.forEach(catId => {
+        const category = categories.find(cat => cat.id === catId);
+        if (category) {
+          category.keywords.forEach(keyword => {
+            if (input.includes(keyword.toLowerCase())) {
+              score += 1; // Lower score for category keywords
+            }
+          });
+        }
+      });
+      
+      return { question, score };
     });
     
-    // Check category keywords
-    question.categoryIds.forEach(catId => {
-      const category = bankingCategories.find(cat => cat.id === catId);
-      if (category) {
-        category.keywords.forEach(keyword => {
-          if (input.includes(keyword.toLowerCase())) {
-            score += 1; // Lower score for category keywords
-          }
-        });
-      }
-    });
+    // Sort by score and get the best match
+    matches.sort((a, b) => b.score - a.score);
     
-    return { question, score };
-  });
-  
-  // Sort by score and get the best match
-  matches.sort((a, b) => b.score - a.score);
-  
-  // Return the best match if score is above threshold
-  if (matches.length > 0 && matches[0].score > 0) {
-    return matches[0].question;
+    // Return the best match if score is above threshold
+    if (matches.length > 0 && matches[0].score > 0) {
+      return matches[0].question;
+    }
+    
+  } catch (error) {
+    console.error("Error finding best match:", error);
   }
   
   return null;
@@ -225,8 +238,14 @@ export function getDefaultResponse(): string {
 /**
  * Get suggested questions based on a category
  */
-export function getSuggestedQuestions(categoryId: string): BankingQuestion[] {
-  return bankingQuestions.filter(q => q.categoryIds.includes(categoryId)).slice(0, 3);
+export async function getSuggestedQuestions(categoryId: string): Promise<BankingQuestion[]> {
+  try {
+    const questions = await databaseService.getQuestionsByCategory(categoryId);
+    return questions.slice(0, 3);
+  } catch (error) {
+    console.error("Error getting suggested questions:", error);
+    return [];
+  }
 }
 
 /**

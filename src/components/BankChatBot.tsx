@@ -10,11 +10,10 @@ import CategorySelector from "./CategorySelector";
 import { 
   findBestMatch, 
   getDefaultResponse, 
-  getWelcomeMessage, 
-  getSuggestedQuestions,
-  bankingCategories,
+  getWelcomeMessage,
   BankingQuestion
 } from "@/services/bankBotData";
+import { databaseService } from "@/services/databaseService";
 
 const BankChatBot = () => {
   const [messages, setMessages] = useState<ChatMessageProps[]>([
@@ -28,6 +27,7 @@ const BankChatBot = () => {
   const [inputValue, setInputValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<BankingQuestion[]>([]);
   const messageEndRef = useRef<HTMLDivElement>(null);
   
   // Scroll to bottom when messages change
@@ -35,7 +35,26 @@ const BankChatBot = () => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSendMessage = () => {
+  // Fetch suggested questions when active category changes
+  useEffect(() => {
+    const fetchSuggestedQuestions = async () => {
+      if (activeCategoryId) {
+        try {
+          const questions = await databaseService.getQuestionsByCategory(activeCategoryId);
+          setSuggestedQuestions(questions.slice(0, 3));
+        } catch (error) {
+          console.error("Error fetching suggested questions:", error);
+          setSuggestedQuestions([]);
+        }
+      } else {
+        setSuggestedQuestions([]);
+      }
+    };
+    
+    fetchSuggestedQuestions();
+  }, [activeCategoryId]);
+
+  const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
     // Add user message
@@ -50,12 +69,15 @@ const BankChatBot = () => {
     setShowSuggestions(false);
     
     // Process the user's message and generate a response
-    setTimeout(() => {
-      const matchedQuestion = findBestMatch(inputValue);
+    setTimeout(async () => {
+      const matchedQuestion = await findBestMatch(inputValue);
       
       let botResponse: string;
+      let matchedQuestionId: string | null = null;
+      
       if (matchedQuestion) {
         botResponse = matchedQuestion.answer;
+        matchedQuestionId = matchedQuestion.id;
         
         // Set the category for suggested follow-up questions
         if (matchedQuestion.categoryIds.length > 0) {
@@ -71,6 +93,9 @@ const BankChatBot = () => {
         isBot: true,
         timestamp: new Date()
       };
+      
+      // Log the interaction to the database
+      await databaseService.logChatInteraction(inputValue, botResponse, matchedQuestionId);
       
       setMessages(prev => [...prev, botMessage]);
       setShowSuggestions(true);
@@ -83,23 +108,29 @@ const BankChatBot = () => {
     }
   };
 
-  const handleCategorySelect = (categoryId: string) => {
+  const handleCategorySelect = async (categoryId: string) => {
     setActiveCategoryId(categoryId);
     
-    // Find category name
-    const category = bankingCategories.find(cat => cat.id === categoryId);
-    if (!category) return;
-    
-    const botMessage: ChatMessageProps = {
-      content: `Here are some common questions about ${category.name}:`,
-      isBot: true,
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, botMessage]);
+    try {
+      // Get category details from the database
+      const categories = await databaseService.getCategories();
+      const category = categories.find(cat => cat.id === categoryId);
+      
+      if (!category) return;
+      
+      const botMessage: ChatMessageProps = {
+        content: `Here are some common questions about ${category.name}:`,
+        isBot: true,
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error("Error fetching category:", error);
+    }
   };
 
-  const handleSuggestionClick = (question: string) => {
+  const handleSuggestionClick = async (question: string) => {
     // Simulate user asking the suggested question
     const userMessage: ChatMessageProps = {
       content: question,
@@ -111,12 +142,15 @@ const BankChatBot = () => {
     setShowSuggestions(false);
     
     // Find and provide the answer
-    setTimeout(() => {
-      const matchedQuestion = findBestMatch(question);
+    setTimeout(async () => {
+      const matchedQuestion = await findBestMatch(question);
       
       let botResponse: string;
+      let matchedQuestionId: string | null = null;
+      
       if (matchedQuestion) {
         botResponse = matchedQuestion.answer;
+        matchedQuestionId = matchedQuestion.id;
         
         // Set the category for suggested follow-up questions
         if (matchedQuestion.categoryIds.length > 0) {
@@ -126,6 +160,9 @@ const BankChatBot = () => {
         botResponse = getDefaultResponse();
         setActiveCategoryId(null);
       }
+      
+      // Log the interaction to the database
+      await databaseService.logChatInteraction(question, botResponse, matchedQuestionId);
       
       const botMessage: ChatMessageProps = {
         content: botResponse,
@@ -137,11 +174,6 @@ const BankChatBot = () => {
       setShowSuggestions(true);
     }, 1000);
   };
-
-  // Get suggested questions for the active category
-  const suggestedQuestions = activeCategoryId 
-    ? getSuggestedQuestions(activeCategoryId)
-    : [];
 
   return (
     <Card className="w-full max-w-2xl mx-auto h-[600px] flex flex-col">
