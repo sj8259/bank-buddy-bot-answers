@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -74,17 +73,32 @@ const BankChatBot = () => {
       
       let botResponse: string;
       let matchedQuestionId: string | null = null;
+      let newCategoryId: string | null = null;
       
       if (matchedQuestion) {
         botResponse = matchedQuestion.answer;
-        matchedQuestionId = matchedQuestion.id;
+        matchedQuestionId = matchedQuestion.id.startsWith('synthetic-') || matchedQuestion.id.startsWith('greeting-') ? 
+          null : matchedQuestion.id;
         
         // Set the category for suggested follow-up questions
         if (matchedQuestion.categoryIds.length > 0) {
           setActiveCategoryId(matchedQuestion.categoryIds[0]);
+          newCategoryId = matchedQuestion.categoryIds[0];
         }
       } else {
-        botResponse = getDefaultResponse();
+        // Handle truly informal queries by checking if they contain any banking-related keywords
+        const input = inputValue.toLowerCase();
+        if (input.length < 10 && 
+            !input.includes('loan') && 
+            !input.includes('account') && 
+            !input.includes('card') && 
+            !input.includes('transfer') && 
+            !input.includes('security')) {
+          botResponse = "Hello! I'd be happy to help with your banking questions. Could you please provide more details about what you'd like to know?";
+        } else {
+          botResponse = getDefaultResponse();
+        }
+        
         setActiveCategoryId(null);
       }
       
@@ -99,6 +113,25 @@ const BankChatBot = () => {
       
       setMessages(prev => [...prev, botMessage]);
       setShowSuggestions(true);
+      
+      // If a specific category was identified and we have a single-word query,
+      // show a follow-up suggestion about that category
+      if (newCategoryId && inputValue.trim().split(/\s+/).length < 3) {
+        const categories = await databaseService.getCategories();
+        const category = categories.find(c => c.id === newCategoryId);
+        
+        if (category) {
+          setTimeout(() => {
+            const followUpMessage: ChatMessageProps = {
+              content: `Would you like to learn more about ${category.name}? You can ask me specific questions.`,
+              isBot: true,
+              timestamp: new Date()
+            };
+            
+            setMessages(prev => [...prev, followUpMessage]);
+          }, 1000);
+        }
+      }
     }, 1000);
   };
 

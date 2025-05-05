@@ -167,9 +167,42 @@ export const bankingQuestions: BankingQuestion[] = [
  * Find the best matching question based on user input
  */
 export async function findBestMatch(userInput: string): Promise<BankingQuestion | null> {
-  const input = userInput.toLowerCase();
+  const input = userInput.toLowerCase().trim();
   
   try {
+    // First check if this is an informal query
+    const informalResult = await databaseService.handleInformalQuery(input);
+    if (informalResult.response) {
+      if (informalResult.matchedQuestionId) {
+        // If we have a direct match from the informal handler
+        const questions = await databaseService.getQuestions();
+        const matchedQuestion = questions.find(q => q.id === informalResult.matchedQuestionId);
+        if (matchedQuestion) {
+          return matchedQuestion;
+        }
+      } else if (informalResult.categoryId) {
+        // If we have a category but no specific question, create a synthetic response
+        const syntheticQuestion: BankingQuestion = {
+          id: `synthetic-${Date.now()}`,
+          question: userInput,
+          answer: informalResult.response,
+          categoryIds: [informalResult.categoryId],
+          keywords: []
+        };
+        return syntheticQuestion;
+      } else {
+        // For pure informality like greetings
+        const syntheticQuestion: BankingQuestion = {
+          id: `greeting-${Date.now()}`,
+          question: userInput,
+          answer: informalResult.response,
+          categoryIds: [],
+          keywords: []
+        };
+        return syntheticQuestion;
+      }
+    }
+    
     // Get questions from the database
     const questions = await databaseService.getQuestions();
     
@@ -177,12 +210,31 @@ export async function findBestMatch(userInput: string): Promise<BankingQuestion 
     const directMatch = questions.find(q => q.question.toLowerCase().includes(input));
     if (directMatch) return directMatch;
     
+    // Extract potential intent from informal query
+    let detectedCategory = null;
+    if (input.includes('account') || input.includes('balance') || input.includes('statement')) {
+      detectedCategory = 'accounts';
+    } else if (input.includes('card') || input.includes('credit') || input.includes('debit')) {
+      detectedCategory = 'cards';
+    } else if (input.includes('loan') || input.includes('mortgage') || input.includes('interest')) {
+      detectedCategory = 'loans';
+    } else if (input.includes('transfer') || input.includes('payment') || input.includes('bill')) {
+      detectedCategory = 'transfers';
+    } else if (input.includes('secure') || input.includes('password') || input.includes('login')) {
+      detectedCategory = 'security';
+    }
+    
     // Get categories from the database
     const categories = await databaseService.getCategories();
     
     // Calculate match scores based on keywords
     const matches = questions.map(question => {
       let score = 0;
+      
+      // Boost score for questions in the detected category
+      if (detectedCategory && question.categoryIds.includes(detectedCategory)) {
+        score += 2;
+      }
       
       // Check question keywords
       question.keywords.forEach(keyword => {

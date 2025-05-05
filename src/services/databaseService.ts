@@ -61,6 +61,62 @@ class DatabaseService {
     return questions.filter(q => q.categoryIds.includes(categoryId));
   }
   
+  // Handle informal queries by detecting intent
+  async handleInformalQuery(userInput: string): Promise<{ 
+    response: string;
+    categoryId: string | null;
+    matchedQuestionId: string | null;
+  }> {
+    const input = userInput.toLowerCase().trim();
+    
+    // Handle greetings
+    const greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'howdy'];
+    if (greetings.some(greeting => input === greeting || input.startsWith(greeting + ' '))) {
+      return {
+        response: "Hello! I'm your banking assistant. How can I help you today? You can ask me about accounts, cards, loans, transfers, or security.",
+        categoryId: null,
+        matchedQuestionId: null
+      };
+    }
+    
+    // Intent detection for loans
+    if (input.includes('loan') || input.includes('mortgage')) {
+      // Match any questions about loans/mortgage processes
+      const questions = await this.getQuestions();
+      const loanQuestions = questions.filter(q => 
+        q.categoryIds.includes('loans') && 
+        (q.question.toLowerCase().includes('process') || 
+         q.question.toLowerCase().includes('apply') || 
+         q.question.toLowerCase().includes('how'))
+      );
+      
+      if (input.includes('process') && loanQuestions.length > 0) {
+        const processQuestion = loanQuestions.find(q => q.question.toLowerCase().includes('process'));
+        if (processQuestion) {
+          return {
+            response: processQuestion.answer,
+            categoryId: 'loans',
+            matchedQuestionId: processQuestion.id
+          };
+        }
+      }
+      
+      if (loanQuestions.length > 0) {
+        return {
+          response: "I can help you with loan information. Are you interested in applying for a loan, learning about the mortgage process, or checking current interest rates?",
+          categoryId: 'loans',
+          matchedQuestionId: null
+        };
+      }
+    }
+    
+    return {
+      response: "",
+      categoryId: null,
+      matchedQuestionId: null
+    };
+  }
+  
   // Save a new chat history entry
   async logChatInteraction(
     userQuery: string, 
