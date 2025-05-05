@@ -1,6 +1,6 @@
 
 import BankChatBot from "@/components/BankChatBot";
-import { piggyBank } from "lucide-react";
+import { PiggyBank } from "lucide-react";
 
 const Index = () => {
   return (
