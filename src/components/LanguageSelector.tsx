@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Language, useLanguage } from "@/contexts/LanguageContext";
+import { Globe } from "lucide-react";
 
 const LanguageSelector = () => {
   const { language, setLanguage } = useLanguage();
@@ -24,10 +25,11 @@ const LanguageSelector = () => {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button 
-          variant="ghost" 
-          className="p-2 h-9 text-sm"
+          variant="outline" 
+          className="flex items-center gap-2 p-2 h-9 text-sm border-bank-accent/50 hover:bg-bank-light hover:text-bank-primary"
           aria-label="Change language"
         >
+          <Globe className="h-4 w-4" />
           {languages.find(lang => lang.code === language)?.name || "English"}
         </Button>
       </PopoverTrigger>
