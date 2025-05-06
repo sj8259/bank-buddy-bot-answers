@@ -1,11 +1,18 @@
 
 import BankChatBot from "@/components/BankChatBot";
-import { PiggyBank } from "lucide-react";
+import LanguageSelector from "@/components/LanguageSelector";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { translate } from "@/utils/translations";
 
 const Index = () => {
+  const { language } = useLanguage();
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-bank-light/30 py-8 px-4">
       <div className="container max-w-5xl mx-auto">
+        <div className="flex justify-end mb-4">
+          <LanguageSelector />
+        </div>
         <div className="text-center mb-10">
           <div className="flex justify-center mb-4">
             <div className="bg-bank-primary p-3 rounded-full">
@@ -18,7 +25,7 @@ const Index = () => {
           </div>
           <h1 className="text-3xl md:text-4xl font-bold text-bank-dark mb-2">BankBuddy NLP Chatbot</h1>
           <p className="text-gray-600 max-w-xl mx-auto">
-            Get instant answers to all your banking queries. Our AI-powered assistant can help you with accounts, cards, loans, transfers, and security questions.
+            {translate("welcomeMessage", language)}
           </p>
         </div>
 

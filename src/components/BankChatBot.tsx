@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,8 @@ import { SendIcon } from "lucide-react";
 import ChatMessage, { ChatMessageProps } from "./ChatMessage";
 import SuggestionButton from "./SuggestionButton";
 import CategorySelector from "./CategorySelector";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { translate } from "@/utils/translations";
 import { 
   findBestMatch, 
   getDefaultResponse, 
@@ -15,13 +18,26 @@ import {
 import { databaseService } from "@/services/databaseService";
 
 const BankChatBot = () => {
+  const { language } = useLanguage();
+  
   const [messages, setMessages] = useState<ChatMessageProps[]>([
     {
-      content: getWelcomeMessage(),
+      content: translate("welcomeMessage", language),
       isBot: true,
       timestamp: new Date()
     }
   ]);
+  
+  // Reset welcome message when language changes
+  useEffect(() => {
+    if (messages.length === 1 && messages[0].isBot) {
+      setMessages([{
+        content: translate("welcomeMessage", language),
+        isBot: true,
+        timestamp: new Date()
+      }]);
+    }
+  }, [language]);
   
   const [inputValue, setInputValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -76,7 +92,15 @@ const BankChatBot = () => {
       let newCategoryId: string | null = null;
       
       if (matchedQuestion) {
-        botResponse = matchedQuestion.answer;
+        // Get translated response if it's a synthetic or greeting message, otherwise use the answer from the database
+        if (matchedQuestion.id.startsWith('synthetic-') || matchedQuestion.id.startsWith('greeting-')) {
+          botResponse = matchedQuestion.answer;
+        } else {
+          // For real questions, we would need to have translations for all answers
+          // For now, we'll just use the English answers
+          botResponse = matchedQuestion.answer;
+        }
+        
         matchedQuestionId = matchedQuestion.id.startsWith('synthetic-') || matchedQuestion.id.startsWith('greeting-') ? 
           null : matchedQuestion.id;
         
@@ -94,9 +118,9 @@ const BankChatBot = () => {
             !input.includes('card') && 
             !input.includes('transfer') && 
             !input.includes('security')) {
-          botResponse = "Hello! I'd be happy to help with your banking questions. Could you please provide more details about what you'd like to know?";
+          botResponse = translate("greeting", language);
         } else {
-          botResponse = getDefaultResponse();
+          botResponse = translate("defaultResponse", language);
         }
         
         setActiveCategoryId(null);
@@ -122,8 +146,9 @@ const BankChatBot = () => {
         
         if (category) {
           setTimeout(() => {
+            const categoryName = translate(`category_${category.id}`, language);
             const followUpMessage: ChatMessageProps = {
-              content: `Would you like to learn more about ${category.name}? You can ask me specific questions.`,
+              content: translate("learnMoreAboutCategory", language, [categoryName]),
               isBot: true,
               timestamp: new Date()
             };
@@ -151,8 +176,9 @@ const BankChatBot = () => {
       
       if (!category) return;
       
+      const categoryName = translate(`category_${category.id}`, language);
       const botMessage: ChatMessageProps = {
-        content: `Here are some common questions about ${category.name}:`,
+        content: translate("commonQuestionsAbout", language, [categoryName]),
         isBot: true,
         timestamp: new Date()
       };
@@ -190,7 +216,7 @@ const BankChatBot = () => {
           setActiveCategoryId(matchedQuestion.categoryIds[0]);
         }
       } else {
-        botResponse = getDefaultResponse();
+        botResponse = translate("defaultResponse", language);
         setActiveCategoryId(null);
       }
       
@@ -211,9 +237,11 @@ const BankChatBot = () => {
   return (
     <Card className="w-full max-w-2xl mx-auto h-[600px] flex flex-col">
       <CardHeader className="bg-bank-primary text-white py-4 px-6">
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-white rounded-full"></div>
-          <h2 className="font-semibold text-lg">BankBuddy Assistant</h2>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-white rounded-full"></div>
+            <h2 className="font-semibold text-lg">BankBuddy Assistant</h2>
+          </div>
         </div>
       </CardHeader>
       
@@ -232,13 +260,18 @@ const BankChatBot = () => {
         
         {messages.length === 1 && (
           <div className="mt-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">
+              {translate("whatCanIHelpWith", language)}
+            </h3>
             <CategorySelector onSelectCategory={handleCategorySelect} />
           </div>
         )}
         
         {showSuggestions && activeCategoryId && suggestedQuestions.length > 0 && (
           <div className="mt-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Related questions:</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">
+              {translate("relatedQuestions", language)}
+            </h3>
             <div className="flex flex-wrap gap-2">
               {suggestedQuestions.map((question: BankingQuestion) => (
                 <SuggestionButton
@@ -255,7 +288,7 @@ const BankChatBot = () => {
       <CardFooter className="border-t p-4">
         <div className="flex w-full items-center space-x-2">
           <Input
-            placeholder="Type your banking question..."
+            placeholder={translate("typeBankingQuestion", language)}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}

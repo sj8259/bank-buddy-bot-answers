@@ -1,4 +1,3 @@
-
 import { BankingCategory, BankingQuestion } from './bankBotData';
 
 // This interface defines the structure of our chat history entries
@@ -69,18 +68,22 @@ class DatabaseService {
   }> {
     const input = userInput.toLowerCase().trim();
     
-    // Handle greetings
-    const greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'howdy'];
+    // Handle greetings in multiple languages
+    const greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'howdy', 
+                      'नमस्ते', 'नमस्कार', 'वणक्கம்', 'నమస్కారం', 'హలో'];
     if (greetings.some(greeting => input === greeting || input.startsWith(greeting + ' '))) {
       return {
-        response: "Hello! I'm your banking assistant. How can I help you today? You can ask me about accounts, cards, loans, transfers, or security.",
+        response: "greeting",
         categoryId: null,
         matchedQuestionId: null
       };
     }
     
     // Intent detection for loans
-    if (input.includes('loan') || input.includes('mortgage')) {
+    if (input.includes('loan') || input.includes('mortgage') || 
+        input.includes('ऋण') || input.includes('कर्ज') || 
+        input.includes('கடன்') || 
+        input.includes('రుణం')) {
       // Match any questions about loans/mortgage processes
       const questions = await this.getQuestions();
       const loanQuestions = questions.filter(q => 
@@ -90,7 +93,8 @@ class DatabaseService {
          q.question.toLowerCase().includes('how'))
       );
       
-      if (input.includes('process') && loanQuestions.length > 0) {
+      if ((input.includes('process') || input.includes('प्रक्रिया') || input.includes('செயல்முறை') || input.includes('ప్రక్రియ')) && 
+          loanQuestions.length > 0) {
         const processQuestion = loanQuestions.find(q => q.question.toLowerCase().includes('process'));
         if (processQuestion) {
           return {

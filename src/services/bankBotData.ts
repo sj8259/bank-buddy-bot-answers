@@ -1,5 +1,5 @@
-
 import { databaseService } from "./databaseService";
+import { translate } from "@/utils/translations";
 
 // Types for our chatbot data
 export interface BankingCategory {
@@ -278,10 +278,7 @@ export async function findBestMatch(userInput: string): Promise<BankingQuestion 
  */
 export function getDefaultResponse(): string {
   const responses = [
-    "I don't have enough information about that banking query. Could you provide more details or rephrase your question?",
-    "I'm not sure I understood your banking question. Can you ask it differently?",
-    "I don't have specific information about that. Would you like to know about account services, cards, loans, transfers, or security instead?",
-    "I couldn't find an exact match for your question. Could you be more specific about what banking information you need?"
+    "defaultResponse",
   ];
   
   return responses[Math.floor(Math.random() * responses.length)];
@@ -304,5 +301,5 @@ export async function getSuggestedQuestions(categoryId: string): Promise<Banking
  * Get welcome message
  */
 export function getWelcomeMessage(): string {
-  return "Hello! I'm your BankBuddy assistant. I can help you with information about accounts, cards, loans, transfers, and security questions. What would you like to know?";
+  return "welcomeMessage";
 }
